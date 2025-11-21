@@ -64,7 +64,7 @@ jobs:
           echo "🌿 MBridge ref: ${{ inputs.mbridge_ref }}"
           
           gh workflow run install-test.yml \
-            --repo NVIDIA/Megatron-Bridge --ref ${{ inputs.mbridge_ref }} \
+            --repo NVIDIA-NeMo/Megatron-Bridge --ref ${{ inputs.mbridge_ref }} \
             --field mcore_commit=${{ steps.mcore_info.outputs.sha }} \
             --field mcore_branch=${{ steps.mcore_info.outputs.branch }} \
             --field test_suite=${{ inputs.test_suite }} \
@@ -80,7 +80,7 @@ jobs:
           echo "🌿 MBridge ref: ${{ inputs.mbridge_ref }}"
           
           gh workflow run cicd-main.yml \
-            --repo NVIDIA/Megatron-Bridge --ref ${{ inputs.mbridge_ref }} \
+            --repo NVIDIA-NeMo/Megatron-Bridge --ref ${{ inputs.mbridge_ref }} \
             --field mcore_commit=${{ steps.mcore_info.outputs.sha }} \
             --field mcore_branch=${{ steps.mcore_info.outputs.branch }} \
             --field test_suite=${{ inputs.test_suite }} \
@@ -89,7 +89,7 @@ jobs:
       - name: Workflows triggered
         run: |
           echo "✅ MBridge workflows triggered. View results at:"
-          echo "   https://github.com/NVIDIA/Megatron-Bridge/actions"
+          echo "   https://github.com/NVIDIA-NeMo/Megatron-Bridge/actions"
           echo "   Filter by 'triggered by: mcore-ci'"
       
       - name: Summary
@@ -99,8 +99,8 @@ jobs:
             echo ""
             echo "**MCore Commit:** \`${{ steps.mcore_info.outputs.short_sha }}\` | **Test Suite:** \`${{ inputs.test_suite }}\`"
             echo ""
-            [ "${{ inputs.run_install_test }}" == "true" ] && echo "- ✅ [install-test.yml](https://github.com/NVIDIA/Megatron-Bridge/actions/workflows/install-test.yml)"
-            [ "${{ inputs.run_cicd_main }}" == "true" ] && echo "- ✅ [cicd-main.yml](https://github.com/NVIDIA/Megatron-Bridge/actions/workflows/cicd-main.yml)"
+            [ "${{ inputs.run_install_test }}" == "true" ] && echo "- ✅ [install-test.yml](https://github.com/NVIDIA-NeMo/Megatron-Bridge/actions/workflows/install-test.yml)"
+            [ "${{ inputs.run_cicd_main }}" == "true" ] && echo "- ✅ [cicd-main.yml](https://github.com/NVIDIA-NeMo/Megatron-Bridge/actions/workflows/cicd-main.yml)"
             echo ""
-            echo "🔍 [View all runs](https://github.com/NVIDIA/Megatron-Bridge/actions) (filter: *mcore-ci*)"
+            echo "🔍 [View all runs](https://github.com/NVIDIA-NeMo/Megatron-Bridge/actions) (filter: *mcore-ci*)"
           } >> $GITHUB_STEP_SUMMARY
