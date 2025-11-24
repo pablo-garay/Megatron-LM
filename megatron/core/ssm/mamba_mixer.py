@@ -482,10 +482,7 @@ class MambaMixer(MegatronModule):
             zxBCdt_chunked_prefill = zxBCdt[
                 active_token_count - chunked_prefill_request_token_count : active_token_count
             ]
-
-            batch_index_chunked_prefill = batch_indices[
-                context.get_index_of_chunked_prefill_request()
-            ]
+            batch_index_chunked_prefill = batch_indices[context.chunked_prefill_request_id]
 
             y_prefill_chunked = self.ssm_prefill(
                 zxBCdt_chunked_prefill,

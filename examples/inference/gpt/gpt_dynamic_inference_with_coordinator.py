@@ -43,6 +43,7 @@ async def main(
     engine: DynamicInferenceEngine,
     requests: List[Request],
     port: int,
+    mp_port: int,
     sampling_params: SamplingParams | None = None,
 ):
     if sampling_params is not None:
@@ -57,6 +58,7 @@ async def main(
     
     await engine.start_listening_to_data_parallel_coordinator(
         inference_coordinator_port=port,
+        inference_mp_coordinator_port=mp_port,
         launch_inference_coordinator=True,
         verbose=True,
     )
@@ -256,5 +258,6 @@ if __name__ == "__main__":
                 engine,
                 requests,
                 args.inference_coordinator_port,
+                args.inference_mp_coordinator_port
             )
         )
