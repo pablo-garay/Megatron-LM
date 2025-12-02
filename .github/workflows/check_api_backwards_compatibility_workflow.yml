@@ -3,11 +3,12 @@ name: API Compatibility Check
 on:
   push:
     branches:
-      - "pull-request/[0-9]+"
-    paths:
-      - 'megatron/core/**/*.py'
-      - '!megatron/core/tests/**'
-      - '!megatron/legacy/**'
+      - dev
+      - main
+      - 'pull-request/[0-9]+'
+      - 'deploy-release/*'
+  merge_group:
+    types: [checks_requested]
 
   # Allow manual trigger
   workflow_dispatch:
@@ -17,8 +18,71 @@ on:
         required: true
 
 jobs:
+  pre-flight:
+    name: Pre-flight Check
+    runs-on: ubuntu-latest
+    outputs:
+      should_skip: ${{ steps.check_files.outputs.should_skip }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check if relevant files changed
+        id: check_files
+        run: |
+          # For manual triggers, never skip
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "should_skip=false" >> $GITHUB_OUTPUT
+            echo "Manual trigger - will run compatibility check"
+            exit 0
+          fi
+
+          # Determine base SHA based on event type
+          if [ "${{ github.event_name }}" == "merge_group" ]; then
+            BASE_SHA="${{ github.event.merge_group.base_sha }}"
+            echo "Merge group event - comparing against base: $BASE_SHA"
+          else
+            # For push events, use merge-base to find common ancestor
+            # This handles cases where base branch has advanced
+            BASE_SHA=$(git merge-base origin/${{ github.base_ref || 'main' }} HEAD 2>/dev/null || echo "")
+            if [ -z "$BASE_SHA" ]; then
+              # Fallback: try to determine from branch name
+              if [[ "${{ github.ref }}" == refs/heads/pull-request/* ]]; then
+                BASE_SHA=$(git merge-base origin/dev HEAD 2>/dev/null || git merge-base origin/main HEAD 2>/dev/null || echo "")
+              else
+                BASE_SHA=$(git merge-base origin/main HEAD 2>/dev/null || echo "")
+              fi
+            fi
+            echo "Push event - comparing against merge-base: $BASE_SHA"
+          fi
+
+          if [ -z "$BASE_SHA" ]; then
+            echo "Could not determine base SHA - will run compatibility check"
+            echo "should_skip=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          # Check for changes in megatron/core Python files (excluding tests and legacy)
+          CHANGED_FILES=$(git diff --name-only "$BASE_SHA" HEAD -- \
+            'megatron/core/**/*.py' \
+            ':!megatron/core/tests/**' \
+            ':!megatron/legacy/**' 2>/dev/null || echo "")
+
+          if [ -z "$CHANGED_FILES" ]; then
+            echo "should_skip=true" >> $GITHUB_OUTPUT
+            echo "No relevant megatron/core files changed - will skip compatibility check"
+          else
+            echo "should_skip=false" >> $GITHUB_OUTPUT
+            echo "Relevant files changed:"
+            echo "$CHANGED_FILES"
+          fi
+
   check-compatibility:
     name: Check API Backward Compatibility
+    needs: pre-flight
+    if: needs.pre-flight.outputs.should_skip != 'true'
     runs-on: ubuntu-latest
     
     # ============================================================================
@@ -169,3 +233,34 @@ jobs:
         run: |
           echo "::notice::✅ No breaking API changes detected!"
 
+  api-backward-compatibility-summary:
+    name: API Backward Compatibility Summary
+    if: always()
+    needs: [pre-flight, check-compatibility]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check results
+        run: |
+          pre_flight_skip="${{ needs.pre-flight.outputs.should_skip }}"
+          check_result="${{ needs.check-compatibility.result }}"
+          
+          echo "Pre-flight should_skip: $pre_flight_skip"
+          echo "Check-compatibility result: $check_result"
+          
+          if [[ "$pre_flight_skip" == "true" ]]; then
+            echo "::notice::✅ API compatibility check skipped - no relevant megatron/core files changed"
+            exit 0
+          fi
+          
+          if [[ "$check_result" == "success" ]]; then
+            echo "::notice::✅ API backward compatibility check passed!"
+            exit 0
+          fi
+          
+          if [[ "$check_result" == "skipped" ]]; then
+            echo "::notice::✅ API compatibility check was skipped (pre-flight determined no relevant changes)"
+            exit 0
+          fi
+          
+          echo "::error::❌ API backward compatibility check failed!"
+          exit 1
